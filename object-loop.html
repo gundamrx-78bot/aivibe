@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>객체 배열과 반복문 애니메이션</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+      color: #eef;
+      line-height: 1.6;
+      padding: 16px;
+      min-height: 100vh;
+      background: linear-gradient(135deg, #1b1042, #0b3a6b, #12756f, #3a1250);
+      background-size: 400% 400%;
+      animation: bg 18s ease infinite;
+    }
+    @keyframes bg { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+    .wrap { max-width: 1040px; margin: 0 auto; }
+    h1 { font-size: 1.7rem; background: linear-gradient(90deg, #ffd86b, #ff7eb3, #7eb6ff); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    .sub { color: #c9d4f5; margin-bottom: 16px; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+    .box { background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.2); backdrop-filter: blur(8px); border-radius: 16px; padding: 16px; box-shadow: 0 8px 24px rgba(0,0,0,.25); }
+    .box h2 { font-size: 1rem; color: #ffd86b; margin-bottom: 10px; }
+
+    /* 코드 */
+    pre.code { font-family: Consolas, "D2Coding", monospace; font-size: .92rem; background: rgba(8,12,28,.75); color: #e8eef3; border-radius: 10px; padding: 10px 0; overflow-x: auto; }
+    .line { padding: 2px 14px; white-space: pre; border-left: 4px solid transparent; }
+    .line.on { background: linear-gradient(90deg, rgba(255,216,107,.35), rgba(255,216,107,0)); border-left-color: #ffd86b; font-weight: bold; color: #fff; }
+    .note { margin-top: 10px; font-size: .85rem; color: #ffb3c8; }
+
+    /* 설명 */
+    .explain { min-height: 92px; background: rgba(255,255,255,.12); border-radius: 12px; padding: 12px 14px; font-size: 1.05rem; }
+
+    /* 객체 카드 */
+    .cards { display: flex; gap: 12px; flex-wrap: wrap; }
+    .item { flex: 1 1 150px; border-radius: 14px; padding: 10px 12px; background: rgba(255,255,255,.14); border: 2px solid transparent; transition: transform .3s, box-shadow .3s, background .3s; }
+    .item .tag { font-family: Consolas, monospace; font-size: .8rem; color: #ffd86b; }
+    .item .kv { display: flex; justify-content: space-between; font-family: Consolas, monospace; padding: 3px 0; border-bottom: 1px dashed rgba(255,255,255,.2); }
+    .item .kv:last-child { border-bottom: 0; }
+    .item .k { color: #9ad1ff; }
+    .item .v { font-weight: bold; }
+    .item.pop { animation: appear .6s backwards; }
+    .item.active { background: rgba(255,216,107,.25); border-color: #ffd86b; transform: translateY(-6px) scale(1.04); box-shadow: 0 0 22px rgba(255,216,107,.8); }
+    .item.done { background: rgba(110,231,160,.18); border-color: rgba(110,231,160,.6); }
+    .item.done .tag::after { content: " ✔"; color: #6ee7a0; }
+    .item .kv.glow { background: rgba(255,126,179,.35); border-radius: 6px; }
+    @keyframes appear { 0% { transform: scale(.4) rotate(-8deg); opacity: 0; } 70% { transform: scale(1.1); } 100% { transform: scale(1); opacity: 1; } }
+    .ivar { margin-top: 12px; display: flex; align-items: center; gap: 10px; }
+    .ivar .name { font-family: Consolas, monospace; font-size: 1.2rem; color: #ffd86b; }
+    .ivar .holder { flex: 1; min-height: 44px; border: 2px dashed rgba(255,255,255,.35); border-radius: 12px; padding: 8px 12px; font-family: Consolas, monospace; }
+    .ivar .holder.full { border-style: solid; border-color: #ffd86b; animation: appear .5s; }
+
+    /* 계산 */
+    .calc { min-height: 120px; text-align: center; }
+    .chips { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+    .chip { background: rgba(255,126,179,.3); border: 1px solid #ff7eb3; border-radius: 999px; padding: 4px 14px; font-family: Consolas, monospace; animation: appear .5s backwards; }
+    .formula { font-size: 2rem; font-weight: bold; animation: appear .6s; }
+    .formula .res { background: linear-gradient(90deg, #ffd86b, #ff7eb3); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    .addline { margin-top: 6px; color: #c9d4f5; font-family: Consolas, monospace; }
+    .placeholder { color: #9aa8d6; padding-top: 34px; }
+
+    /* 장바구니 / 합계 */
+    .basket { min-height: 110px; border: 3px dashed rgba(255,216,107,.7); border-radius: 14px; padding: 10px; background: rgba(0,0,0,.18); display: flex; flex-wrap: wrap; align-content: flex-start; gap: 2px; }
+    .e { display: inline-block; }
+    .e.big { font-size: 1.8rem; }
+    .e.small { font-size: 1.15rem; }
+    .e.drop { animation: drop .7s backwards; }
+    @keyframes drop { 0% { transform: translateY(-120px) scale(.4); opacity: 0; } 70% { transform: translateY(6px) scale(1.15); } 100% { transform: translateY(0) scale(1); opacity: 1; } }
+    .sumbox { margin-top: 12px; text-align: center; padding: 12px; border-radius: 14px; background: rgba(255,255,255,.12); }
+    .sumbox .label { color: #c9d4f5; font-family: Consolas, monospace; }
+    .sumbox .num { font-size: 2.4rem; font-weight: bold; background: linear-gradient(90deg, #ffd86b, #ff7eb3, #7eb6ff); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    .sumbox.bump .num { animation: bump .6s; }
+    @keyframes bump { 0% { transform: scale(1); } 40% { transform: scale(1.25); } 100% { transform: scale(1); } }
+
+    .console { font-family: Consolas, monospace; background: rgba(0,0,0,.6); color: #7CFC9A; border-radius: 10px; padding: 10px 14px; min-height: 44px; margin-top: 12px; }
+    .console div::before { content: "> "; color: #888; }
+
+    /* 조작 */
+    .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 4px; }
+    button { font: inherit; border: 0; border-radius: 10px; padding: 10px 16px; background: linear-gradient(135deg, #ff7eb3, #ff9d5c); color: #fff; font-weight: bold; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,.3); transition: transform .15s; }
+    button:hover { transform: translateY(-2px); }
+    button.sec { background: rgba(255,255,255,.2); }
+    button:disabled { opacity: .4; cursor: default; transform: none; }
+    .speed { display: flex; align-items: center; gap: 6px; margin-left: auto; font-size: .9rem; color: #c9d4f5; }
+    .bar { height: 8px; background: rgba(255,255,255,.2); border-radius: 4px; margin-top: 12px; overflow: hidden; }
+    .bar div { height: 100%; width: 0; background: linear-gradient(90deg, #ffd86b, #ff7eb3); transition: width .2s; }
+    .count { font-size: .9rem; color: #c9d4f5; margin-top: 6px; }
+
+    .confetti { position: fixed; top: -20px; width: 10px; height: 14px; z-index: 50; pointer-events: none; animation: fall linear forwards; }
+    @keyframes fall { to { transform: translateY(110vh) rotate(720deg); opacity: .9; } }
+
+    @media (max-width: 720px) { .grid { grid-template-columns: 1fr; } .speed { margin-left: 0; } }
+    @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>✨ 객체 배열과 반복문, 눈으로 보는 애니메이션</h1>
+    <p class="sub">data 배열 안의 객체를 하나씩 꺼내 사과 가격 × 개수를 모두 더해요. ▶ 다음 단계를 눌러 보세요!</p>
+
+    <div class="grid">
+      <div class="box">
+        <h2>📜 코드 (노란 줄이 지금 실행 중)</h2>
+        <pre class="code" id="code"></pre>
+        <p class="note">※ 처음 코드의 <b>i.amout</b>는 오타예요. 그대로 실행하면 값이 없어서(undefined) 결과가 NaN이 돼요. 그래서 <b>i.amount</b>로 고쳐서 만들었어요.</p>
+        <div class="console" id="console"></div>
+      </div>
+
+      <div class="box">
+        <h2>💬 지금 무슨 일이 일어나고 있나요?</h2>
+        <div class="explain" id="explain"></div>
+        <h2 style="margin-top:14px">🗂️ data 배열 (객체 2개)</h2>
+        <div class="cards" id="cards"></div>
+        <div class="ivar"><span class="name">i =</span><div class="holder" id="holder">아직 비어 있어요</div></div>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="box">
+        <h2>🧮 계산 (i.사과 × i.amount)</h2>
+        <div class="calc" id="calc"></div>
+        <div class="sumbox" id="sumbox"><div class="label">sum</div><div class="num" id="sum">아직 없음</div></div>
+      </div>
+      <div class="box">
+        <h2>🧺 장바구니 (🍎 하나가 사과 1개)</h2>
+        <div class="basket" id="basket"></div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button class="sec" id="first">⏮ 처음으로</button>
+      <button class="sec" id="prev">◀ 이전</button>
+      <button id="next">다음 단계 ▶</button>
+      <button id="play">⏯ 자동 재생</button>
+      <label class="speed">느리게
+        <input type="range" id="speed" min="400" max="3000" step="100" value="1600" style="direction:rtl">
+        빠르게
+      </label>
+    </div>
+    <div class="bar"><div id="progress"></div></div>
+    <p class="count" id="count"></p>
+  </div>
+
+  <script>
+    const data = [{ 사과: 100, amount: 5 }, { 사과: 103, amount: 52 }];
+
+    const codeLines = [
+      "let data = [",
+      '    { "사과": 100, "amount": 5  },',
+      '    { "사과": 103, "amount": 52 },',
+      "]",
+      "let sum = 0",
+      "for (const i of data) {   // 2개가 있으므로 {} 안의 내용을 2번 반복",
+      "    sum += i.사과 * i.amount",
+      "}",
+      "console.log(sum)          // 결과 확인용"
+    ];
+
+    // ----- 실제로 계산하면서 단계 기록 -----
+    const steps = [];
+    let sum, cur = null, vis = false, done = [false, false], calc = null, just = -1;
+    const log = [];
+    const f = n => n.toLocaleString("ko-KR");
+
+    function snap(o) {
+      steps.push(Object.assign({ sum, cur, vis, done: done.slice(), calc, just: -1, log: log.slice(), chips: false }, o));
+    }
+
+    vis = true;
+    snap({ lines: [0, 1, 2, 3], text: "data 배열을 만들어요. 안에는 객체 2개가 들어 있어요. 객체는 { 키: 값 } 모양의 '이름표 붙은 상자'예요. 각각 사과 가격(사과)과 개수(amount)를 가지고 있어요." });
+    sum = 0;
+    snap({ lines: [4], text: "합계를 모을 sum 상자를 만들고 0을 넣어요." });
+
+    for (let k = 0; k < data.length; k++) {
+      cur = k; calc = null;
+      snap({ lines: [5], chips: true, text: "반복 " + (k + 1) + "번째! data[" + k + "] 객체를 꺼내 i에 넣어요. i.사과는 " + data[k].사과 + ", i.amount는 " + data[k].amount + "이에요. (점 . 으로 키의 값을 꺼내요)" });
+      const r = data[k].사과 * data[k].amount, before = sum;
+      sum += r; done[k] = true;
+      calc = { a: data[k].사과, b: data[k].amount, r, before, after: sum };
+      snap({ lines: [6], just: k, text: "i.사과 × i.amount = " + f(data[k].사과) + " × " + data[k].amount + " = " + f(r) + "원! 사과 " + data[k].amount + "개가 장바구니에 담겼어요. sum = " + f(before) + " + " + f(r) + " = " + f(sum) });
+    }
+
+    cur = null; calc = null;
+    snap({ lines: [7], text: "배열에 객체가 2개뿐이라 반복은 2번으로 끝나요. 반복문을 빠져나와요!" });
+    log.push(sum);
+    snap({ lines: [8], final: true, text: "최종 합계 " + f(sum) + "원을 콘솔에 출력해요. 500 + 5,356 = 5,856 🎉" });
+
+    // ----- 화면 -----
+    const $ = id => document.getElementById(id);
+    codeLines.forEach(t => { const d = document.createElement("div"); d.className = "line"; d.textContent = t; $("code").appendChild(d); });
+
+    let pos = 0, timer = null, prev = null, shown = 0, raf = null;
+
+    function countUp(to) {
+      cancelAnimationFrame(raf);
+      const from = shown, start = performance.now(), dur = 700;
+      const tick = now => {
+        const p = Math.min(1, (now - start) / dur);
+        shown = Math.round(from + (to - from) * p);
+        $("sum").textContent = f(shown) + "원";
+        if (p < 1) raf = requestAnimationFrame(tick);
+      };
+      raf = requestAnimationFrame(tick);
+    }
+
+    function confetti() {
+      const colors = ["#ffd86b", "#ff7eb3", "#7eb6ff", "#6ee7a0", "#ff9d5c"];
+      for (let n = 0; n < 60; n++) {
+        const c = document.createElement("span");
+        c.className = "confetti";
+        c.style.left = Math.random() * 100 + "vw";
+        c.style.background = colors[n % colors.length];
+        c.style.animationDuration = (2 + Math.random() * 2) + "s";
+        c.style.animationDelay = (Math.random() * 0.6) + "s";
+        document.body.appendChild(c);
+        setTimeout(() => c.remove(), 5000);
+      }
+    }
+
+    function itemHTML(k, s) {
+      const d = document.createElement("div");
+      d.className = "item" + (s.cur === k ? " active" : "") + (s.done[k] && s.cur !== k ? " done" : "") + (!prev || !prev.vis ? " pop" : "");
+      if (!prev || !prev.vis) d.style.animationDelay = (k * 200) + "ms";
+      const glow = s.chips && s.cur === k ? " glow" : "";
+      d.innerHTML =
+        '<div class="tag">data[' + k + ']</div>' +
+        '<div class="kv' + glow + '"><span class="k">"사과"</span><span class="v">' + f(data[k].사과) + '</span></div>' +
+        '<div class="kv' + glow + '"><span class="k">"amount"</span><span class="v">' + data[k].amount + '</span></div>';
+      return d;
+    }
+
+    function render() {
+      const s = steps[pos];
+
+      [...$("code").children].forEach((el, n) => el.classList.toggle("on", s.lines.includes(n)));
+      $("explain").textContent = s.text;
+
+      // 객체 카드
+      $("cards").innerHTML = "";
+      if (s.vis) data.forEach((_, k) => $("cards").appendChild(itemHTML(k, s)));
+      else $("cards").innerHTML = '<div style="color:#9aa8d6">아직 만들어지기 전이에요</div>';
+
+      // i
+      const holder = $("holder");
+      if (s.cur !== null) {
+        holder.className = "holder full";
+        holder.textContent = '{ "사과": ' + f(data[s.cur].사과) + ', "amount": ' + data[s.cur].amount + " }";
+      } else { holder.className = "holder"; holder.textContent = pos > 5 ? "반복이 끝나서 비었어요" : "아직 비어 있어요"; }
+
+      // 계산
+      const calcEl = $("calc");
+      if (s.calc) {
+        calcEl.innerHTML =
+          '<div class="chips"><span class="chip">i.사과 → ' + f(s.calc.a) + '</span><span class="chip">i.amount → ' + s.calc.b + '</span></div>' +
+          '<div class="formula">' + f(s.calc.a) + " × " + s.calc.b + ' = <span class="res">' + f(s.calc.r) + '</span></div>' +
+          '<div class="addline">sum = ' + f(s.calc.before) + " + " + f(s.calc.r) + " → " + f(s.calc.after) + "</div>";
+      } else if (s.chips && s.cur !== null) {
+        calcEl.innerHTML =
+          '<div class="chips"><span class="chip">i.사과 → ' + f(data[s.cur].사과) + '</span><span class="chip">i.amount → ' + data[s.cur].amount + '</span></div>' +
+          '<div class="placeholder">이제 이 두 값을 곱해요! ▶</div>';
+      } else {
+        calcEl.innerHTML = '<div class="placeholder">반복문이 돌면 여기에 계산이 나타나요 ✨</div>';
+      }
+
+      // 장바구니
+      const basket = $("basket"); basket.innerHTML = "";
+      data.forEach((it, k) => {
+        if (!s.done[k]) return;
+        for (let j = 0; j < it.amount; j++) {
+          const e = document.createElement("span");
+          e.className = "e " + (it.amount > 20 ? "small" : "big") + (s.just === k ? " drop" : "");
+          if (s.just === k) e.style.animationDelay = Math.min(j * (1400 / it.amount), 1400) + "ms";
+          e.textContent = "🍎";
+          basket.appendChild(e);
+        }
+      });
+      if (!basket.children.length) basket.innerHTML = '<div style="color:#9aa8d6;margin:auto">아직 비어 있어요 🧺</div>';
+
+      // 합계
+      if (s.sum === undefined) { cancelAnimationFrame(raf); shown = 0; $("sum").textContent = "아직 없음"; }
+      else {
+        countUp(s.sum);
+        if (prev && prev.sum !== s.sum) { $("sumbox").classList.remove("bump"); void $("sumbox").offsetWidth; $("sumbox").classList.add("bump"); }
+      }
+
+      $("console").innerHTML = "";
+      s.log.forEach(l => { const d = document.createElement("div"); d.textContent = l; $("console").appendChild(d); });
+
+      $("progress").style.width = ((pos + 1) / steps.length * 100) + "%";
+      $("count").textContent = "단계 " + (pos + 1) + " / " + steps.length;
+      $("prev").disabled = $("first").disabled = pos === 0;
+      $("next").disabled = pos === steps.length - 1;
+      if (s.final && (!prev || !prev.final)) confetti();
+      prev = s;
+    }
+
+    function go(n) { pos = Math.max(0, Math.min(steps.length - 1, n)); render(); }
+    function stop() { clearInterval(timer); timer = null; $("play").textContent = "⏯ 자동 재생"; }
+    function play() {
+      if (timer) return stop();
+      if (pos === steps.length - 1) { prev = null; go(0); }
+      $("play").textContent = "⏸ 멈춤";
+      timer = setInterval(() => { if (pos >= steps.length - 1) return stop(); go(pos + 1); }, +$("speed").value);
+    }
+
+    $("next").onclick = () => { stop(); go(pos + 1); };
+    $("prev").onclick = () => { stop(); prev = null; go(pos - 1); };
+    $("first").onclick = () => { stop(); prev = null; go(0); };
+    $("play").onclick = play;
+    $("speed").oninput = () => { if (timer) { clearInterval(timer); timer = null; play(); } };
+    document.addEventListener("keydown", e => {
+      if (e.key === "ArrowRight") $("next").click();
+      if (e.key === "ArrowLeft") $("prev").click();
+    });
+
+    render();
+  </script>
+</body>
+</html>
