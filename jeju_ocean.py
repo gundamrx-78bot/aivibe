@@ -24,6 +24,7 @@
              태양이 낮을수록 주황색, 높을수록 흰색. 바다에 햇빛이 반짝이며 비쳐요.
 """
 import bpy
+import bmesh
 import math
 import os
 import sys
@@ -213,10 +214,20 @@ def make_terrain(heights, dx, dy):
     return obj, (nx * dx, ny * dy)
 
 
+def make_plane(name, size, location):
+    """평면 하나 만들기. (화면이 막 열리는 중에도 되도록 bpy.ops 대신 bpy.data로 만들어요)"""
+    h = size / 2.0
+    mesh = bpy.data.meshes.new(name)
+    mesh.from_pydata([(-h, -h, 0), (h, -h, 0), (h, h, 0), (-h, h, 0)], [], [(0, 1, 2, 3)])
+    mesh.update()
+    obj = bpy.data.objects.new(name, mesh)
+    obj.location = location
+    bpy.context.collection.objects.link(obj)
+    return obj
+
+
 def make_ocean():
-    bpy.ops.mesh.primitive_plane_add(size=1.0, location=(0, 0, 0))
-    sea = bpy.context.active_object
-    sea.name = "Ocean"
+    sea = make_plane("Ocean", 1.0, (0, 0, 0))
     mod = sea.modifiers.new("Ocean", "OCEAN")
     mod.geometry_mode = "GENERATE"
     mod.resolution = OCEAN_RES
@@ -296,9 +307,7 @@ def make_ocean():
     sea.data.materials.append(mat)
 
     # 파도 면 바깥은 수평선까지 평평한 바다가 이어지도록 (같은 재질의 아주 큰 판)
-    bpy.ops.mesh.primitive_plane_add(size=6000.0, location=(0, 0, -0.03))
-    far = bpy.context.active_object
-    far.name = "OceanFar"
+    far = make_plane("OceanFar", 6000.0, (0, 0, -0.03))
     far.data.materials.append(mat)
 
     # 잔물결 무늬도 프레임에 따라 흘러가게 (4D 노이즈의 W 값에 드라이버)
@@ -322,9 +331,18 @@ def make_sun():
     bpy.context.collection.objects.link(target)
 
     # 보이는 태양 (빛나는 구)
-    bpy.ops.mesh.primitive_uv_sphere_add(radius=R * math.tan(math.radians(2.2)), segments=48, ring_count=24, location=(0, R, 0))
-    disc = bpy.context.active_object
-    disc.name = "SunDisc"
+    disc_mesh = bpy.data.meshes.new("SunDisc")
+    bm = bmesh.new()
+    bmesh.ops.create_uvsphere(bm, u_segments=48, v_segments=24, radius=R * math.tan(math.radians(2.2)))
+    bm.to_mesh(disc_mesh)
+    bm.free()
+    try:
+        disc_mesh.shade_smooth()
+    except AttributeError:
+        pass
+    disc = bpy.data.objects.new("SunDisc", disc_mesh)
+    disc.location = (0, R, 0)
+    bpy.context.collection.objects.link(disc)
     disc.visible_shadow = False
     mat = bpy.data.materials.new("SunGlow")
     enable_nodes(mat)
@@ -419,6 +437,29 @@ def setup_render(sc, quick):
     sc.render.image_settings.file_format = "PNG"
 
 
+def show_in_viewport():
+    """화면이 있는 Blender에서 카메라 시점 + 재질 미리보기로 바꾸고, 애니메이션을 자동 재생해요."""
+    for win in bpy.context.window_manager.windows:
+        for area in win.screen.areas:
+            if area.type != "VIEW_3D":
+                continue
+            space = area.spaces.active
+            try:
+                space.shading.type = "MATERIAL"              # 부드럽게 재생되는 미리보기
+                space.shading.use_scene_lights = True
+                space.shading.use_scene_world = True
+                space.overlay.show_overlays = False          # 격자/조명 표시는 숨겨요
+            except Exception as e:
+                print("[보기 설정 일부 실패]", e)
+            space.region_3d.view_perspective = "CAMERA"       # 카메라 시점
+            with bpy.context.temp_override(window=win, area=area):
+                if not bpy.context.screen.is_animation_playing:
+                    bpy.ops.screen.animation_play()           # 재생 (Space와 같아요)
+            print("[보기] 카메라 시점으로 자동 재생 중 (멈추기: Space)")
+            return None
+    return 0.5                                                # 화면이 아직 준비 중이면 다시 시도
+
+
 def main():
     args = parse_args()
     sc = new_scene()
@@ -446,6 +487,8 @@ def main():
     else:
         sc.frame_set(FRAME_START)
         print("[완료] 재생(Space)하면 물결과 태양이 움직여요. 렌더링은 Render → Render Animation (Ctrl+F12)")
+        if not bpy.app.background:
+            bpy.app.timers.register(show_in_viewport, first_interval=1.5)
 
 
 main()
