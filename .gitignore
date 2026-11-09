@@ -6,3 +6,8 @@
 
 # 내려받은 강의 폴더
 DAY1-*/
+
+# Blender 작업 파일과 렌더 결과
+*.blend
+*.blend1
+jeju_render/
