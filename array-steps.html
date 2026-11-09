@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>자바스크립트 배열 단계별 실행</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+      background: #f4f8fb;
+      color: #223;
+      line-height: 1.6;
+      padding: 16px;
+    }
+    .wrap { max-width: 1000px; margin: 0 auto; }
+    h1 { font-size: 1.5rem; color: #0b6e99; }
+    .sub { color: #567; margin-bottom: 16px; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .box { background: #fff; border-radius: 12px; padding: 16px; box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+    .box h2 { font-size: 1rem; color: #0b6e99; margin-bottom: 10px; }
+
+    /* 코드 */
+    pre.code { font-family: Consolas, "D2Coding", monospace; font-size: .95rem; background: #1e2a35; color: #e8eef3; border-radius: 8px; padding: 10px 0; overflow-x: auto; }
+    .line { padding: 2px 14px; white-space: pre; border-left: 4px solid transparent; }
+    .line.on { background: #fff3b0; color: #222; border-left-color: #f5a623; font-weight: bold; }
+
+    /* 설명 */
+    .explain { min-height: 76px; background: #eaf6fd; border-radius: 8px; padding: 12px; font-size: 1.05rem; }
+
+    /* 변수 */
+    .vars { display: flex; flex-wrap: wrap; gap: 10px; }
+    .var { flex: 1 1 90px; text-align: center; border-radius: 10px; background: #f0f4f7; padding: 8px; }
+    .var .name { font-size: .85rem; color: #567; }
+    .var .val { font-size: 1.5rem; font-weight: bold; color: #0b6e99; }
+    .var.changed { animation: pop .5s; background: #ffe9b0; }
+    @keyframes pop { 0% { transform: scale(1); } 40% { transform: scale(1.18); } 100% { transform: scale(1); } }
+
+    /* 콘솔 */
+    .console { font-family: Consolas, monospace; background: #111; color: #7CFC9A; border-radius: 8px; padding: 10px 14px; min-height: 64px; max-height: 120px; overflow-y: auto; }
+    .console div::before { content: "> "; color: #888; }
+
+    /* 배열 */
+    .cells { display: grid; grid-template-columns: repeat(10, 1fr); gap: 4px; }
+    .cell { text-align: center; font-size: .8rem; padding: 6px 0; border-radius: 6px; background: #e7edf2; color: #789; transition: background .2s, transform .2s; }
+    .cell.done { background: #c9e9d3; color: #2b6b40; }
+    .cell.now { background: #f5a623; color: #fff; font-weight: bold; transform: scale(1.25); }
+    .cell.peek { background: #2d8fd5; color: #fff; font-weight: bold; transform: scale(1.25); }
+    .hint { font-size: .85rem; color: #789; margin-top: 8px; }
+
+    /* 조작 */
+    .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 16px; }
+    button { font: inherit; border: 0; border-radius: 8px; padding: 10px 16px; background: #0b6e99; color: #fff; cursor: pointer; }
+    button:hover { background: #09577a; }
+    button.sec { background: #6c7f8c; }
+    button:disabled { opacity: .4; cursor: default; }
+    .speed { display: flex; align-items: center; gap: 6px; margin-left: auto; font-size: .9rem; }
+    .bar { height: 8px; background: #dde6ec; border-radius: 4px; margin-top: 12px; overflow: hidden; }
+    .bar div { height: 100%; width: 0; background: #0b6e99; transition: width .15s; }
+    .count { font-size: .9rem; color: #567; margin-top: 6px; }
+
+    @media (max-width: 720px) {
+      .grid { grid-template-columns: 1fr; }
+      .speed { margin-left: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>🧩 자바스크립트 배열, 한 줄씩 실행해 봐요</h1>
+    <p class="sub">▶ 다음 단계를 누를 때마다 코드가 한 줄씩 실행되고, 오른쪽에서 변수와 결과가 바뀌는 걸 볼 수 있어요.</p>
+
+    <div class="grid">
+      <div class="box">
+        <h2>📜 코드 (노란 줄이 지금 실행 중)</h2>
+        <pre class="code" id="code"></pre>
+      </div>
+
+      <div class="box">
+        <h2>💬 지금 무슨 일이 일어나고 있나요?</h2>
+        <div class="explain" id="explain"></div>
+        <h2 style="margin-top:14px">📦 변수 상자</h2>
+        <div class="vars" id="vars"></div>
+        <h2 style="margin-top:14px">🖥️ 콘솔 (console.log 결과)</h2>
+        <div class="console" id="console"></div>
+      </div>
+    </div>
+
+    <div class="box" style="margin-top:16px">
+      <h2>🔢 배열 data (칸 100개)</h2>
+      <div class="cells" id="cells"></div>
+      <p class="hint">🟦 파란 칸: 값을 꺼내 보는 중 &nbsp; 🟧 주황 칸: 반복문이 지금 처리하는 값 &nbsp; 🟩 초록 칸: 이미 더한 값</p>
+    </div>
+
+    <div class="controls">
+      <button class="sec" id="first">⏮ 처음으로</button>
+      <button class="sec" id="prev">◀ 이전</button>
+      <button id="next">다음 단계 ▶</button>
+      <button id="play">⏯ 자동 재생</button>
+      <button class="sec" id="skip">⏭ 반복문 끝까지</button>
+      <label class="speed">느리게
+        <input type="range" id="speed" min="40" max="1200" step="20" value="400" style="direction:rtl">
+        빠르게
+      </label>
+    </div>
+    <div class="bar"><div id="progress"></div></div>
+    <p class="count" id="count"></p>
+  </div>
+
+  <script>
+    // ----- 화면에 보여 줄 코드 (원본 코드를 줄 단위로 정리) -----
+    const codeLines = [
+      "const data = [1, 2, 3, ... , 100]",
+      "console.log(data[0])",
+      "let sum = 10",
+      "sum += 7",
+      "console.log(sum)",
+      "let cnt = 8",
+      "cnt = cnt + 1",
+      "for (const i of data) {",
+      "    sum += i",
+      "}",
+      "console.log(sum)"
+    ];
+
+    // ----- 실제로 코드를 돌려 보면서 단계별 상태를 미리 기록 -----
+    const data = Array.from({ length: 100 }, (_, k) => k + 1);
+    const steps = [];
+    let sum, cnt, i;
+    const log = [];
+
+    function snap(extra) {
+      steps.push(Object.assign({ sum, cnt, i, log: log.slice(), mode: "none", hl: -1 }, extra));
+    }
+
+    snap({ lines: [0], text: "배열 data를 만들어요. 1부터 100까지 숫자 100개가 줄지어 들어 있는 상자예요. 아직 sum, cnt는 만들어지기 전이에요." });
+
+    log.push(data[0]);
+    snap({ lines: [1], mode: "peek", hl: 0, text: "data[0]은 배열의 '첫 번째' 값이에요. 컴퓨터는 0부터 세기 때문에 [0]이 첫 번째랍니다. 그래서 1이 출력돼요." });
+
+    sum = 10;
+    snap({ lines: [2], text: "sum이라는 변수 상자를 만들고 10을 넣어요." });
+
+    sum += 7;
+    snap({ lines: [3], text: "sum += 7은 'sum = sum + 7'과 같아요. 10 + 7 = 17이 돼요.", changed: "sum" });
+
+    log.push(sum);
+    snap({ lines: [4], text: "sum의 값 17을 콘솔에 출력해요." });
+
+    cnt = 8;
+    snap({ lines: [5], text: "cnt라는 변수 상자를 만들고 8을 넣어요.", changed: "cnt" });
+
+    cnt = cnt + 1;
+    snap({ lines: [6], text: "cnt에 1을 더해서 9가 돼요. (이 변수는 아래 반복문에서는 쓰이지 않아요.)", changed: "cnt" });
+
+    for (let k = 0; k < data.length; k++) {
+      i = data[k];
+      const before = sum;
+      sum += i;
+      snap({
+        lines: [7, 8], mode: "loop", hl: k, changed: "sum",
+        text: "반복 " + (k + 1) + "번째: 배열에서 값 " + i + "을 꺼내 i에 넣고, sum에 더해요. " + before + " + " + i + " = " + sum
+      });
+    }
+    const loopFirst = steps.findIndex(s => s.mode === "loop");
+    const loopLast = steps.length - 1;
+
+    i = undefined;
+    log.push(sum);
+    snap({ lines: [10], text: "반복이 모두 끝났어요! 17에 1부터 100까지의 합 5050을 더한 최종 sum " + sum + "을 출력해요." });
+
+    // ----- 화면 만들기 -----
+    const $ = id => document.getElementById(id);
+    const codeEl = $("code"), cellsEl = $("cells"), varsEl = $("vars"), consoleEl = $("console");
+
+    codeLines.forEach((t, n) => {
+      const d = document.createElement("div");
+      d.className = "line"; d.textContent = t; codeEl.appendChild(d);
+    });
+    data.forEach(v => {
+      const d = document.createElement("div");
+      d.className = "cell"; d.textContent = v; cellsEl.appendChild(d);
+    });
+
+    let pos = 0, timer = null;
+    let prevState = null;
+
+    function fmt(v) { return v === undefined ? "아직 없음" : v; }
+
+    function render() {
+      const s = steps[pos];
+
+      [...codeEl.children].forEach((el, n) => el.classList.toggle("on", s.lines.includes(n)));
+
+      $("explain").textContent = s.text;
+
+      const names = [["sum", s.sum], ["cnt", s.cnt], ["i", s.i]];
+      varsEl.innerHTML = "";
+      names.forEach(([n, v]) => {
+        const d = document.createElement("div");
+        d.className = "var" + (s.changed === n && (!prevState || prevState[n] !== v) ? " changed" : "");
+        d.innerHTML = '<div class="name"></div><div class="val"></div>';
+        d.children[0].textContent = n;
+        d.children[1].textContent = fmt(v);
+        varsEl.appendChild(d);
+      });
+
+      consoleEl.innerHTML = "";
+      s.log.forEach(line => {
+        const d = document.createElement("div"); d.textContent = line; consoleEl.appendChild(d);
+      });
+      consoleEl.scrollTop = consoleEl.scrollHeight;
+
+      [...cellsEl.children].forEach((el, k) => {
+        el.className = "cell";
+        if (s.mode === "peek" && k === s.hl) el.classList.add("peek");
+        else if (s.mode === "loop") {
+          if (k < s.hl) el.classList.add("done");
+          else if (k === s.hl) el.classList.add("now");
+        } else if (pos === steps.length - 1) el.classList.add("done");
+      });
+
+      $("progress").style.width = ((pos + 1) / steps.length * 100) + "%";
+      $("count").textContent = "단계 " + (pos + 1) + " / " + steps.length;
+      $("prev").disabled = $("first").disabled = pos === 0;
+      $("next").disabled = pos === steps.length - 1;
+      $("skip").disabled = pos >= loopLast;
+      prevState = s;
+    }
+
+    function go(n) { pos = Math.max(0, Math.min(steps.length - 1, n)); render(); }
+    function stop() { clearInterval(timer); timer = null; $("play").textContent = "⏯ 자동 재생"; }
+    function play() {
+      if (timer) return stop();
+      if (pos === steps.length - 1) go(0);
+      $("play").textContent = "⏸ 멈춤";
+      const run = () => {
+        if (pos >= steps.length - 1) return stop();
+        go(pos + 1);
+      };
+      timer = setInterval(run, +$("speed").value);
+    }
+
+    $("next").onclick = () => { stop(); go(pos + 1); };
+    $("prev").onclick = () => { stop(); prevState = null; go(pos - 1); };
+    $("first").onclick = () => { stop(); prevState = null; go(0); };
+    $("skip").onclick = () => { stop(); go(loopLast); };
+    $("play").onclick = play;
+    $("speed").oninput = () => { if (timer) { clearInterval(timer); timer = null; play(); } };
+    document.addEventListener("keydown", e => {
+      if (e.key === "ArrowRight") $("next").click();
+      if (e.key === "ArrowLeft") $("prev").click();
+    });
+
+    render();
+  </script>
+</body>
+</html>
