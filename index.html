@@ -85,6 +85,24 @@
     .card p { color: #455; font-size: .95rem; }
     footer { text-align: center; color: #789; padding: 24px 16px; font-size: .9rem; }
 
+    /* 이미지 가져오기 */
+    .imgform { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; background: #fff; padding: 16px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0, 0, 0, .08); }
+    .imgform label { display: flex; flex-direction: column; font-size: .85rem; color: #567; gap: 4px; flex: 1 1 200px; }
+    .imgform input { font: inherit; padding: 9px 10px; border: 1px solid #b9c8d3; border-radius: 8px; }
+    .imgform button { font: inherit; padding: 10px 18px; border: 0; border-radius: 8px; background: #0b6e99; color: #fff; cursor: pointer; }
+    .imgform button:hover { background: #09577a; }
+    .imgform button:disabled { opacity: .5; cursor: default; }
+    .imgnote { font-size: .85rem; color: #567; margin: 8px 0; }
+    .imgstatus { min-height: 1.6em; margin-bottom: 8px; font-weight: bold; }
+    .imgstatus.err { color: #c0392b; }
+    .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
+    .gallery figure { background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0, 0, 0, .08); }
+    .gallery img { display: block; width: 100%; height: 160px; object-fit: cover; }
+    .gallery figcaption { padding: 8px 12px; font-size: .85rem; color: #455; }
+    .gallery figcaption a { color: #0b6e99; }
+    .imgtip { background: #eaf6fd; border-radius: 10px; padding: 10px 14px; margin-top: 14px; font-size: .9rem; }
+    .imgcredit { margin-top: 14px; font-size: .85rem; color: #567; }
+
     /* 모바일: 햄버거 메뉴 */
     @media (max-width: 720px) {
       .hamburger { display: block; }
@@ -118,6 +136,7 @@
           <li><a href="#food">음식점</a></li>
           <li><a href="#bus">버스</a></li>
           <li><a href="#sight">관광지</a></li>
+          <li><a href="#image">이미지</a></li>
         </ul>
       </nav>
     </div>
@@ -173,12 +192,30 @@
         <div class="card"><h3>⛪ 마라도 성당 · 기원정사</h3><p>작은 섬에 나란히 자리한 성당과 절로, 독특한 풍경을 보여 줘요.</p></div>
       </div>
     </section>
+    <section class="page" id="image">
+      <h1>🖼️ 이미지 가져오기</h1>
+      <p class="lead">Pixabay에서 사진을 검색해 화면에 보여 줘요.</p>
+      <form class="imgform" id="imgform">
+        <label>API key
+          <input type="password" id="pxkey" placeholder="Pixabay API key를 붙여넣으세요" autocomplete="off">
+        </label>
+        <label>검색어
+          <input type="text" id="pxq" value="제주도">
+        </label>
+        <button type="submit" id="pxbtn">🔍 이미지 가져오기</button>
+      </form>
+      <p class="imgnote">🔒 API key는 이 브라우저에만 저장되고, GitHub에는 올라가지 않아요.</p>
+      <p class="imgstatus" id="pxstatus"></p>
+      <div class="gallery" id="gallery"></div>
+      <div class="imgtip">💡 <b>배열의 중요성:</b> Pixabay가 보내 준 결과의 <code>hits</code>는 사진 정보가 담긴 <b>배열</b>이에요. 이 배열을 <code>forEach</code> 반복문으로 하나씩 꺼내 사진을 화면에 그려요.</div>
+      <p class="imgcredit">이미지 제공: <a href="https://pixabay.com" target="_blank" rel="noopener">Pixabay</a></p>
+    </section>
   </main>
 
   <footer>© 마라도 여행 가이드 · 이슬처럼</footer>
 
   <script>
-    const pages = ["marado", "hotel", "food", "bus", "sight"];
+    const pages = ["marado", "hotel", "food", "bus", "sight", "image"];
     const links = document.querySelectorAll("nav a");
     const menu = document.getElementById("menu");
     const btn = document.getElementById("hamburger");
@@ -196,6 +233,68 @@
       links.forEach(a => a.classList.toggle("active", a.getAttribute("href") === "#" + id));
       window.scrollTo(0, 0);
     }
+
+    // ----- 이미지 가져오기 (Pixabay API) -----
+    const KEY_STORE = "pixabayKey";
+    const keyInput = document.getElementById("pxkey");
+    const qInput = document.getElementById("pxq");
+    const statusEl = document.getElementById("pxstatus");
+    const gallery = document.getElementById("gallery");
+    const pxBtn = document.getElementById("pxbtn");
+
+    try { keyInput.value = localStorage.getItem(KEY_STORE) || ""; } catch (e) {}
+
+    function setStatus(text, isError) {
+      statusEl.textContent = text;
+      statusEl.classList.toggle("err", !!isError);
+    }
+
+    async function searchImages(event) {
+      event.preventDefault();
+      const key = keyInput.value.trim();
+      const q = qInput.value.trim();
+      if (!key) return setStatus("API key를 먼저 붙여넣어 주세요.", true);
+      if (!q) return setStatus("검색어를 입력해 주세요.", true);
+      try { localStorage.setItem(KEY_STORE, key); } catch (e) {}
+
+      pxBtn.disabled = true;
+      setStatus("이미지를 가져오는 중...", false);
+      gallery.innerHTML = "";
+      try {
+        const url = "https://pixabay.com/api/?key=" + encodeURIComponent(key) +
+          "&q=" + encodeURIComponent(q) + "&image_type=photo&lang=ko&per_page=12&safesearch=true";
+        const res = await fetch(url);
+        if (!res.ok) {
+          throw new Error(res.status === 400 ? "API key가 올바르지 않아요. 다시 확인해 주세요." : "불러오지 못했어요. (오류 " + res.status + ")");
+        }
+        const json = await res.json();
+        const hits = json.hits;            // 사진 정보가 담긴 배열
+        if (hits.length === 0) return setStatus("'" + q + "' 검색 결과가 없어요.", true);
+
+        hits.forEach(photo => {            // 배열을 반복문으로 하나씩 꺼내서 화면에 그리기
+          const fig = document.createElement("figure");
+          const img = document.createElement("img");
+          img.src = photo.webformatURL;
+          img.alt = photo.tags;
+          img.loading = "lazy";
+          const cap = document.createElement("figcaption");
+          const link = document.createElement("a");
+          link.href = photo.pageURL;
+          link.target = "_blank";
+          link.rel = "noopener";
+          link.textContent = photo.user;
+          cap.append("📷 ", link, " · " + photo.tags);
+          fig.append(img, cap);
+          gallery.appendChild(fig);
+        });
+        setStatus("'" + q + "' 사진 " + hits.length + "장을 가져왔어요!", false);
+      } catch (err) {
+        setStatus(err.message || "네트워크 오류가 났어요.", true);
+      } finally {
+        pxBtn.disabled = false;
+      }
+    }
+    document.getElementById("imgform").addEventListener("submit", searchImages);
 
     btn.addEventListener("click", () => setMenu(!menu.classList.contains("open")));
     links.forEach(a => a.addEventListener("click", () => setMenu(false)));
